@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Loyaltybenefit.Worker-99e32b77-54e2-41e3-8fe7-ff8cdc29c62a</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Loyaltybenefit.Application\Loyaltybenefit.Application.csproj" />
+    <ProjectReference Include="..\Loyaltybenefit.Infrastructure\Loyaltybenefit.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
