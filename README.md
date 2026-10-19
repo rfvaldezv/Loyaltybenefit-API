@@ -1,27 +1,23 @@
-# Loyaltybenefit_API
+# Loyalty Benefit API
 
-Backend .NET migrado de la copia fuente del proyecto. Se conservaron las capas y las migraciones; los nombres de solución, carpetas y proyectos se normalizaron a Loyaltybenefit.
+SaaS multi-tenant para programas de lealtad. Permite a empresas (inicialmente hoteles) registrar clientes, acumular puntos por consumo y canjearlos por beneficios.
 
-## Requisitos
-- .NET SDK 10 para compilar localmente, o Docker con soporte para imágenes .NET 10.
-- SQL Server accesible desde el proceso de API/Worker.
+## 🛠 Stack Técnico
+- **Backend:** .NET 10 (C#) con Minimal APIs
+- **Base de Datos:** SQL Server 2022 Express + EF Core (Platform DB + Tenant DBs)
+- **Frontend:** Flutter (en desarrollo)
+- **Documentación API:** Swagger / OpenAPI
 
-## Compilar y probar
-```bash
-dotnet restore Loyaltybenefit_API.slnx
-dotnet build Loyaltybenefit_API.slnx -c Release
-dotnet test Loyaltybenefit_API.slnx -c Release
-```
+## 🚀 Cómo correr el proyecto en local
 
-## Docker
-1. Copia `.env.example` a `.env` y completa valores reales.
-2. No publiques `.env` ni credenciales en Git.
-3. Ejecuta `docker compose up -d --build`.
-4. El puerto de API queda enlazado a `127.0.0.1:8080`; publica por Nginx/HTTPS, no expongas el servicio directamente sin revisar autenticación y autorización.
+### Requisitos
+- .NET 10 SDK
+- SQL Server 2022 Express (`SQLEXPRESS2022`)
+- Git
 
-## Antes de producción
-- Revisar autenticación/autorización y la validación del tenant en cada petición.
-- Revisar idempotencia, concurrencia y reglas de canje/acumulación.
-- Validar y probar migraciones en una base de datos de ensayo y respaldar antes de migrar producción.
-- Revisar configuración de aprovisionamiento SQL, permisos mínimos y cifrado de conexión.
-- La compilación no se ha verificado en este entorno porque no se dispone del SDK de .NET.
+### Pasos
+1. Clonar el repositorio.
+2. Crear el archivo `src/Loyaltybenefit.Api/appsettings.Development.json` (ver `CONTINUIDAD.md` sección 4 para el contenido exacto).
+3. Aplicar migraciones:
+   ```powershell
+   dotnet ef database update --project src\Loyaltybenefit.Infrastructure\Loyaltybenefit.Infrastructure.csproj --startup-project src\Loyaltybenefit.Api\Loyaltybenefit.Api.csproj --context PlatformDbContext
