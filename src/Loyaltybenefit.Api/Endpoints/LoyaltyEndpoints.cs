@@ -1,62 +1,34 @@
 using Loyaltybenefit.Application.Loyalty;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Loyaltybenefit.Api.Endpoints;
 
 public static class LoyaltyEndpoints
 {
-    public static void MapLoyaltyEndpoints(
-        this WebApplication app)
+    public static void MapLoyaltyEndpoints(this WebApplication app)
     {
-        app.MapPost(
-            "/api/loyalty/earn",
-            async (
-                EarnPointsRequest request,
-                EarnPointsService service,
-                CancellationToken cancellationToken) =>
-            {
-                var command = new EarnPointsCommand(
-                    request.TenantId,
-                    request.GuestId,
-                    request.StayId);
+        var group = app.MapGroup("/api/loyalty")
+            .WithTags("Lealtad (Puntos)")
+            .RequireAuthorization(); // 🔒 Requiere JWT
 
-                var result =
-                    await service.ExecuteAsync(
-                        command,
-                        cancellationToken);
+        // POST: Sumar puntos (Basado en Estancia/Stay)
+        group.MapPost("/earn", async (
+            EarnPointsCommand command,
+            EarnPointsService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ExecuteAsync(command, cancellationToken);
+            return Results.Ok(result);
+        });
 
-                return Results.Ok(result);
-            });
-
-        app.MapPost(
-            "/api/loyalty/redeem",
-            async (
-                RedeemPointsRequest request,
-                RedeemPointsService service,
-                CancellationToken cancellationToken) =>
-            {
-                var command = new RedeemPointsCommand(
-                    request.TenantId,
-                    request.GuestId,
-                    request.Points,
-                    request.Reference);
-
-                var result =
-                    await service.ExecuteAsync(
-                        command,
-                        cancellationToken);
-
-                return Results.Ok(result);
-            });
+        // POST: Canjear puntos
+        group.MapPost("/redeem", async (
+            RedeemPointsCommand command,
+            RedeemPointsService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.ExecuteAsync(command, cancellationToken);
+            return Results.Ok(result);
+        });
     }
 }
-
-public sealed record EarnPointsRequest(
-    Guid TenantId,
-    Guid GuestId,
-    Guid StayId);
-
-public sealed record RedeemPointsRequest(
-    Guid TenantId,
-    Guid GuestId,
-    int Points,
-    string Reference);
