@@ -818,3 +818,51 @@ Si vuelves al proyecto después de un tiempo, verifica en orden:
 
 
 
+---
+
+## 🛑 CHECKPOINT OFICIAL: v0.2.0-alpha (19/Oct/2026)
+
+Si algo se rompe, usa el comando `git checkout v0.2.0-alpha` en ambos repos para volver a este estado exacto.
+
+### ¿Qué funciona en este punto?
+1. **Backend:** API en .NET 10 con base de datos SQL Server.
+2. **Autenticación:** Endpoint `/api/auth/login` funcional con Token JWT.
+3. **Hoteles:** Endpoint `/api/tenants` (GET y POST) protegido con JWT.
+4. **Clientes:** Endpoint `/api/customers` (POST) protegido.
+5. **Lealtad:** Endpoint `/api/loyalty/earn` protegido (actualmente espera IDs reales de Estancia/Stay).
+6. **Frontend:** Flutter conectado. Pantalla de Login, Lista de Hoteles, Registro de Clientes y pantalla de prueba de puntos.
+
+### ¿Qué falta para la siguiente sesión (v0.3.0)?
+- Implementar el endpoint y la vista para crear "Estancias" (Stays).
+- Hacer que el formulario de clientes cree un "Guest" real en la base de datos (actualmente es una simulación en memoria).
+- Conectar los puntos reales al cliente usando la regla de lealtad.
+
+### Para correr el proyecto:
+1. Backend: `dotnet run --project src\Loyaltybenefit.Api\Loyaltybenefit.Api.csproj`
+2. Frontend: `cd C:\Aplica\Loyaltybenefit_App` y `flutter run -d windows`
+3. Usuario de prueba: `admin@loyaltybenefit.com` / `Admin123!`
+
+---
+
+## 🛑 CHECKPOINT OFICIAL: v0.2.0-alpha (19/Oct/2026)
+
+Si algo se rompe, usa el comando `git checkout v0.2.0-alpha` en ambos repos para volver a este estado exacto.
+
+### ¿Qué funciona en este punto?
+1. **Backend:** API en .NET 10 con base de datos SQL Server.
+2. **Autenticación:** Endpoint `/api/auth/login` funcional con Token JWT.
+3. **Hoteles:** Endpoint `/api/tenants` (GET y POST) protegido con JWT.
+4. **Clientes:** Endpoint `/api/customers` (POST) protegido.
+5. **Lealtad:** Endpoint `/api/loyalty/earn` protegido (actualmente espera IDs reales de Estancia/Stay).
+6. **Frontend:** Flutter conectado. Pantalla de Login, Lista de Hoteles, Registro de Clientes y pantalla de prueba de puntos.
+
+### ¿Qué falta para la siguiente sesión (v0.3.0)?
+- Implementar el endpoint y la vista para crear "Estancias" (Stays).
+- Hacer que el formulario de clientes cree un "Guest" real en la base de datos (actualmente es una simulación en memoria).
+- Conectar los puntos reales al cliente usando la regla de lealtad.
+
+### Para correr el proyecto:
+1. Backend: `dotnet run --project src\Loyaltybenefit.Api\Loyaltybenefit.Api.csproj`
+2. Frontend: `cd C:\Aplica\Loyaltybenefit_App` y `flutter run -d windows`
+3. Usuario de prueba: `admin@loyaltybenefit.com` / `Admin123!`
+
