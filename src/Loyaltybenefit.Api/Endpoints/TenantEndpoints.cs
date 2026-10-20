@@ -1,33 +1,31 @@
 using Loyaltybenefit.Application.Tenants;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Loyaltybenefit.Api.Endpoints;
 
 public static class TenantEndpoints
 {
-    public static void MapTenantEndpoints(
-        this WebApplication app)
+    public static void MapTenantEndpoints(this WebApplication app)
     {
-        app.MapPost(
-            "/api/tenants",
-            async (
-                CreateTenantRequest request,
-                CreateTenantService service,
-                CancellationToken cancellationToken) =>
-            {
-                var command = new CreateTenantCommand(
-                    request.Code,
-                    request.Name,
-                    request.IndustryCode);
+        // 🔒 Protegemos el grupo con RequireAuthorization
+        var group = app.MapGroup("/api/tenants")
+            .WithTags("Tenants")
+            .RequireAuthorization();
 
-                var result =
-                    await service.ExecuteAsync(
-                        command,
-                        cancellationToken);
+        group.MapPost("/", async (
+            CreateTenantRequest request,
+            CreateTenantService service,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new CreateTenantCommand(
+                request.Code,
+                request.Name,
+                request.IndustryCode);
 
-                return Results.Created(
-                    $"/api/tenants/{result.Id}",
-                    result);
-            });
+            var result = await service.ExecuteAsync(command, cancellationToken);
+
+            return Results.Created($"/api/tenants/{result.Id}", result);
+        });
     }
 }
 
@@ -35,4 +33,3 @@ public sealed record CreateTenantRequest(
     string Code,
     string Name,
     string IndustryCode);
-    
