@@ -85,5 +85,6 @@ app.MapGet("/", () => Results.Ok(new
 app.MapTenantEndpoints();
 app.MapTenantDatabaseEndpoints();
 app.MapLoyaltyEndpoints();
+app.MapAuthEndpoints();
 
 app.Run();
