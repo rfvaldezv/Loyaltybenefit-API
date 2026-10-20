@@ -1,6 +1,7 @@
 using Loyaltybenefit.Application.Tenants;
 using Loyaltybenefit.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Loyaltybenefit.Api.Endpoints;
 
@@ -12,7 +13,7 @@ public static class TenantEndpoints
             .WithTags("Tenants")
             .RequireAuthorization();
 
-        // 👇 NUEVO: Endpoint para listar los hoteles (GET)
+        // 👇 1. ENDPOINT PARA LISTAR (GET)
         group.MapGet("/", async (PlatformDbContext db) =>
         {
             var tenants = await db.Tenants
@@ -22,7 +23,20 @@ public static class TenantEndpoints
             return Results.Ok(tenants);
         });
 
-        // Endpoint original para crear (POST)
+        // 👇 2. ENDPOINT PARA VER UNO SOLO (GET POR ID)
+        group.MapGet("/{id:guid}", async (Guid id, PlatformDbContext db) =>
+        {
+            var tenant = await db.Tenants
+                .Where(t => t.Id == id)
+                .Select(t => new { t.Id, t.Name, t.Code, t.CreatedAtUtc })
+                .FirstOrDefaultAsync();
+
+            if (tenant == null) return Results.NotFound("Hotel no encontrado.");
+
+            return Results.Ok(tenant);
+        });
+
+        // 👇 3. ENDPOINT PARA CREAR (POST)
         group.MapPost("/", async (
             CreateTenantRequest request,
             CreateTenantService service,

@@ -89,5 +89,6 @@ app.MapTenantDatabaseEndpoints();
 app.MapLoyaltyEndpoints();
 app.MapAuthEndpoints();
 //app.MapTenantManagementEndpoints();
+app.MapCustomerEndpoints();
 
 app.Run();
