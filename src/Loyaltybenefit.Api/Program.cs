@@ -9,17 +9,26 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---------------------------------------------------------
-// Servicios
-// ---------------------------------------------------------
-
 builder.Services.AddOpenApi();
-
-// Swagger UI simplificado para .NET 10
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configurar Autenticación JWT
+// Configuracion de CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontends", policy =>
+    {
+        policy.WithOrigins(
+            "https://admin.loyaltybenefit.com",
+            "https://app.loyaltybenefit.com",
+            "http://localhost:5265",
+            "http://localhost:3000"
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+});
+
 var jwtSecret = builder.Configuration["Jwt:SecretKey"] ?? throw new Exception("Falta Jwt:SecretKey en appsettings");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -39,23 +48,15 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
-builder.Services.AddScoped<Loyaltybenefit.Application.Loyalty.ITenantContext, Loyaltybenefit.Infrastructure.Persistence.TenantContext>();
-builder.Services.AddScoped<Loyaltybenefit.Infrastructure.Persistence.TenantDbContextFactory>();
-
-// ---------------------------------------------------------
-// Pipeline
-// ---------------------------------------------------------
 
 var app = builder.Build();
 
-// Seeder
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
     await PlatformSeeder.SeedAsync(context, builder.Configuration);
 }
 
-// Swagger
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -63,25 +64,19 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
-// OpenAPI nativo
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// HTTPS solo en producción
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
-// 🔒 MIDDLEWARES DE SEGURIDAD
+app.UseCors("AllowFrontends");
 app.UseAuthentication();
 app.UseAuthorization();
-
-// ---------------------------------------------------------
-// Endpoints
-// ---------------------------------------------------------
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", service = "Loyalty Benefit API" }));
 app.MapGet("/", () => Results.Ok(new { message = "Loyalty Benefit API", version = "v1", docs = "/swagger" }));
@@ -90,9 +85,8 @@ app.MapTenantEndpoints();
 app.MapTenantDatabaseEndpoints();
 app.MapLoyaltyEndpoints();
 app.MapAuthEndpoints();
-//app.MapTenantManagementEndpoints();
+app.MapStayEndpoints();
+app.MapGuestPortalEndpoints();
 app.MapCustomerEndpoints();
-app.MapStayEndpoints(); // 👈 NUEVO
-app.MapGuestPortalEndpoints();  // 👈 NUEVO
 
 app.Run();
