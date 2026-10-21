@@ -844,3 +844,27 @@ Si algo se rompe, usa el comando `git checkout v0.2.0-alpha` en ambos repos para
 
 ---
 
+
+---
+
+## 🛑 CHECKPOINT OFICIAL: v0.3.0-alpha (21/Oct/2026)
+
+Si algo se rompe, usa el comando `git checkout v0.3.0-alpha` en ambos repos para volver a este estado exacto.
+
+### ¿Qué se logró en esta versión?
+1. **Seguridad:** Token JWT implementado y validado en todos los endpoints.
+2. **Multi-Tenant (Estructura):** El sistema identifica el `TenantId` y se prepara para usar la BD de cada hotel.
+3. **Clientes:** Registro de huéspedes/cliente conectado a la API.
+4. **Motor de Lealtad:** El sistema calcula puntos automáticamente basados en el consumo (1 punto por cada $100).
+5. **Frontend:** Flujo completo desde el Login hasta el cálculo y notificación de puntos.
+
+### ¿Qué está SIMULADO (pendiente para la siguiente sesión)?
+- El guardado físico de los puntos en la base de datos del Hotel (actualmente se calculan y se devuelve el saldo, pero no se persiste en el `TenantDbContext`).
+- La creación física de la base de datos del "Concept Hotel" (Falta el provisioning real).
+
+### ¿Cómo probar la app?
+1. Backend: `dotnet run --project src\Loyaltybenefit.Api\Loyaltybenefit.Api.csproj`
+2. Frontend: `cd C:\Aplica\Loyaltybenefit_App` y `flutter run -d windows`
+3. Login: `admin@loyaltybenefit.com` / `Admin123!`
+4. Flujo: Entrar a Concept Hotel -> Nuevo Cliente -> Registrar Estancia (Monto: 1500) -> Ver mensaje "Puntos otorgados: 15".
+
