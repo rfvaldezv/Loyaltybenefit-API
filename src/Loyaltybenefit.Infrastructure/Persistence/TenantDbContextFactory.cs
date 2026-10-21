@@ -103,6 +103,9 @@ public sealed class TenantDbContextFactory
                     {
                         sqlOptions.MigrationsAssembly(
                             typeof(TenantDbContext).Assembly.FullName);
+                        // 👇 Forzamos a que no haga reintentos ni validaciones largas
+                        sqlOptions.EnableRetryOnFailure(0);
+                        sqlOptions.CommandTimeout(30);
                     })
                 .Options;
 

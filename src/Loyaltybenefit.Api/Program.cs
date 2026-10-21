@@ -39,6 +39,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+builder.Services.AddScoped<Loyaltybenefit.Application.Loyalty.ITenantContext, Loyaltybenefit.Infrastructure.Persistence.TenantContext>();
+builder.Services.AddScoped<Loyaltybenefit.Infrastructure.Persistence.TenantDbContextFactory>();
 
 // ---------------------------------------------------------
 // Pipeline
