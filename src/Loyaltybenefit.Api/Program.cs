@@ -90,5 +90,6 @@ app.MapLoyaltyEndpoints();
 app.MapAuthEndpoints();
 //app.MapTenantManagementEndpoints();
 app.MapCustomerEndpoints();
+app.MapStayEndpoints(); // 👈 NUEVO
 
 app.Run();
