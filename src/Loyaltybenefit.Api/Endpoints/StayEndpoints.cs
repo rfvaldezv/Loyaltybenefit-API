@@ -16,22 +16,18 @@ public static class StayEndpoints
         {
             try
             {
-                // 1. Validar Hotel
                 var tenant = await platformDb.Tenants.FindAsync(request.TenantId);
                 if (tenant == null) return Results.BadRequest("Hotel no encontrado.");
 
-                // 2. Calcular puntos (Regla: 1 punto por cada $100)
+                // 1. Calcular puntos (Regla: 1 punto por cada $100)
                 var points = (int)(request.Amount / 100);
                 if (points <= 0) return Results.BadRequest("El monto es muy bajo para generar puntos.");
 
-                // 3. Simulamos el guardado (la persistencia real se hará en la BD del Tenant)
-                // Por ahora devolvemos el éxito para que la UI funcione.
-                var saldoSimulado = points; 
-
+                // 2. Devolver respuesta de éxito (simulación de guardado multi-tenant)
                 return Results.Ok(new { 
                     Mensaje = $"Puntos calculados exitosamente para {tenant.Name}",
                     PuntosGanados = points,
-                    SaldoActual = saldoSimulado
+                    SaldoActual = points // Saldo simulado
                 });
             }
             catch (Exception ex)

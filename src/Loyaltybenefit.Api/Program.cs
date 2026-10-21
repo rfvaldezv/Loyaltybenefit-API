@@ -91,6 +91,6 @@ app.MapAuthEndpoints();
 //app.MapTenantManagementEndpoints();
 app.MapCustomerEndpoints();
 app.MapStayEndpoints(); // 👈 NUEVO
-app.MapProvisioningEndpoints(); // 👈 NUEVO
+app.MapGuestPortalEndpoints();  // 👈 NUEVO
 
 app.Run();
