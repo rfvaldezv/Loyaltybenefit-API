@@ -88,5 +88,6 @@ app.MapAuthEndpoints();
 app.MapStayEndpoints();
 app.MapGuestPortalEndpoints();
 app.MapCustomerEndpoints();
+app.MapRuleEndpoints(); // 👈 NUEVO
 
 app.Run();

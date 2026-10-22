@@ -868,3 +868,31 @@ Si algo se rompe, usa el comando `git checkout v0.3.0-alpha` en ambos repos para
 3. Login: `admin@loyaltybenefit.com` / `Admin123!`
 4. Flujo: Entrar a Concept Hotel -> Nuevo Cliente -> Registrar Estancia (Monto: 1500) -> Ver mensaje "Puntos otorgados: 15".
 
+
+---
+
+## 🛑 CHECKPOINT OFICIAL: v1.0.0-beta (Producción en VPS)
+
+### URLs de Producción
+- **API:** https://api.loyaltybenefit.com
+- **Admin:** https://admin.loyaltybenefit.com
+- **App:** https://app.loyaltybenefit.com
+
+### Servidor de Producción
+- **Proveedor:** Contabo
+- **SQL Server Local:** `VMI1203198\MSSQLSERVER2019`
+- **Usuario SA:** `sa` / `Aguador#3985`
+- **Carpeta de la API en IIS:** `C:\inetpub\wwwroot\loyaltybenefit_api`
+
+### Configuración de IIS
+- La API corre con el **AspNetCoreModuleV2** y los headers de CORS se manejan desde el código C# (no desde `web.config`).
+- **IMPORTANTE:** El `web.config` en el VPS **NO debe tener** la sección `<customHeaders>` con `Access-Control-Allow-Origin` (porque causa headers duplicados y bloquea el CORS).
+
+### Credenciales de Acceso
+- **Admin:** `admin@loyaltybenefit.com` / `Admin123!`
+- **SA SQL Server:** `Aguador#3985`
+
+### Cómo publicar cambios (Flujo de Producción)
+1. **Backend:** `dotnet publish -c Release -r win-x64 --self-contained false -o .\publish_sc` y copiar `publish_sc` al VPS en `C:\inetpub\wwwroot\loyaltybenefit_api`. Luego reciclar el Application Pool en IIS.
+2. **Admin/App:** `flutter build web --release` y copiar el contenido de `build\web` al VPS en `C:\inetpub\Loyaltybenefit\admin` y `C:\inetpub\Loyaltybenefit\app` respectivamente.
+
