@@ -29,69 +29,44 @@ public sealed class TenantDbContextFactory
 
         if (_tenantContext.TenantId == Guid.Empty)
         {
-            throw new InvalidOperationException(
-                "No se ha establecido el Tenant actual.");
+            throw new InvalidOperationException("No se ha establecido el Tenant actual.");
         }
 
         var tenantDatabase =
             await _platformContext.TenantDatabases
                 .FirstOrDefaultAsync(
-                    x =>
-                        x.TenantId == _tenantContext.TenantId &&
-                        x.IsActive,
+                    x => x.TenantId == _tenantContext.TenantId && x.IsActive,
                     cancellationToken);
 
         if (tenantDatabase is null)
-        {
-            throw new InvalidOperationException(
-                $"No existe una base de datos activa para el Tenant '{_tenantContext.TenantId}'.");
-        }
+            throw new InvalidOperationException($"No existe BD activa para el Tenant '{_tenantContext.TenantId}'.");
 
         var databaseServer =
             await _platformContext.DatabaseServers
                 .FirstOrDefaultAsync(
-                    x =>
-                        x.Id == tenantDatabase.DatabaseServerId &&
-                        x.IsActive,
+                    x => x.Id == tenantDatabase.DatabaseServerId && x.IsActive,
                     cancellationToken);
 
         if (databaseServer is null)
-        {
-            throw new InvalidOperationException(
-                $"No existe un servidor activo para el Tenant '{_tenantContext.TenantId}'.");
-        }
+            throw new InvalidOperationException($"No existe servidor activo para el Tenant '{_tenantContext.TenantId}'.");
 
         var credential =
             await _platformContext.DatabaseCredentials
                 .FirstOrDefaultAsync(
-                    x =>
-                        x.DatabaseServerId == databaseServer.Id &&
-                        x.IsActive,
+                    x => x.DatabaseServerId == databaseServer.Id && x.IsActive,
                     cancellationToken);
 
         if (credential is null)
-        {
-            throw new InvalidOperationException(
-                $"No existe una credencial activa para el servidor '{databaseServer.Code}'.");
-        }
+            throw new InvalidOperationException($"No existe credencial activa para el servidor '{databaseServer.Code}'.");
 
         var connectionBuilder =
             new SqlConnectionStringBuilder
             {
-                DataSource =
-                    $"{databaseServer.Host},{databaseServer.Port}",
-
-                InitialCatalog =
-                    tenantDatabase.PhysicalDatabaseName,
-
-                UserID =
-                    credential.Username,
-
-                Password =
-                    credential.PasswordSecret,
-
+                DataSource = $"{databaseServer.Host},{databaseServer.Port}",
+                InitialCatalog = tenantDatabase.PhysicalDatabaseName,
+                UserID = credential.Username,
+                Password = credential.PasswordSecret,
                 Encrypt = true,
-
                 TrustServerCertificate = true
             };
 
@@ -101,9 +76,7 @@ public sealed class TenantDbContextFactory
                     connectionBuilder.ConnectionString,
                     sqlOptions =>
                     {
-                        sqlOptions.MigrationsAssembly(
-                            typeof(TenantDbContext).Assembly.FullName);
-                        // 👇 Forzamos a que no haga reintentos ni validaciones largas
+                        sqlOptions.MigrationsAssembly(typeof(TenantDbContext).Assembly.FullName);
                         sqlOptions.EnableRetryOnFailure(0);
                         sqlOptions.CommandTimeout(30);
                     })

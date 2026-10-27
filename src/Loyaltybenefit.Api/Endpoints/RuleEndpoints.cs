@@ -1,4 +1,4 @@
-using Loyaltybenefit.Infrastructure.Persistence;
+﻿using Loyaltybenefit.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 
@@ -15,7 +15,8 @@ public static class RuleEndpoints
         // POST: Guardar o actualizar la regla
         group.MapPost("/", async (
             CreateRuleRequest request, 
-            PlatformDbContext platformDb) =>
+            PlatformDbContext platformDb,
+            IConfiguration config) =>
         {
             try
             {
@@ -27,7 +28,8 @@ public static class RuleEndpoints
                 
                 if (tenantDbInfo == null) return Results.BadRequest("El hotel no tiene BD asignada.");
 
-                var connectionString = $"Server=VMI1203198\\MSSQLSERVER2019;Database={tenantDbInfo.PhysicalDatabaseName};User Id=sa;Password=Aguador#3985;TrustServerCertificate=True;";
+                var connectionTemplate = config.GetConnectionString("TenantTemplate");
+                var connectionString = string.Format(connectionTemplate!, tenantDbInfo.PhysicalDatabaseName);
                 
                 using (var connection = new SqlConnection(connectionString))
                 {
@@ -78,7 +80,7 @@ public static class RuleEndpoints
         });
 
         // GET: Obtener la regla actual
-        group.MapGet("/{tenantId:guid}", async (Guid tenantId, PlatformDbContext platformDb) =>
+        group.MapGet("/{tenantId:guid}", async (Guid tenantId, PlatformDbContext platformDb, IConfiguration config) =>
         {
             try
             {
@@ -87,7 +89,8 @@ public static class RuleEndpoints
                 
                 if (tenantDbInfo == null) return Results.NotFound("El hotel no tiene BD asignada.");
 
-                var connectionString = $"Server=VMI1203198\\MSSQLSERVER2019;Database={tenantDbInfo.PhysicalDatabaseName};User Id=sa;Password=Aguador#3985;TrustServerCertificate=True;";
+                var connectionTemplate = config.GetConnectionString("TenantTemplate");
+                var connectionString = string.Format(connectionTemplate!, tenantDbInfo.PhysicalDatabaseName);
                 
                 using (var connection = new SqlConnection(connectionString))
                 {

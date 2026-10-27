@@ -22,10 +22,12 @@ builder.Services.AddCors(options =>
             "https://admin.loyaltybenefit.com",
             "https://app.loyaltybenefit.com",
             "http://localhost:5265",
-            "http://localhost:3000"
+            "http://localhost:3000",
+            "http://localhost:8080"
         )
         .AllowAnyHeader()
-        .AllowAnyMethod();
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
@@ -51,11 +53,15 @@ builder.Services.AddApplication();
 
 var app = builder.Build();
 
+// =====================================================================
+// INICIALIZACIÓN DE BASE DE DATOS (Solo Plataforma)
+// =====================================================================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
     await PlatformSeeder.SeedAsync(context, builder.Configuration);
 }
+// =====================================================================
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -88,6 +94,6 @@ app.MapAuthEndpoints();
 app.MapStayEndpoints();
 app.MapGuestPortalEndpoints();
 app.MapCustomerEndpoints();
-app.MapRuleEndpoints(); // 👈 NUEVO
+app.MapRuleEndpoints();
 
 app.Run();
