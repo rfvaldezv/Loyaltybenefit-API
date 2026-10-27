@@ -21,9 +21,12 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "https://admin.loyaltybenefit.com",
             "https://app.loyaltybenefit.com",
+            "https://kiosko.loyaltybenefit.com", // <-- AGREGADO
+            "https://www.loyaltybenefit.com",    // <-- AGREGADO POR SI ACASO
             "http://localhost:5265",
             "http://localhost:3000",
-            "http://localhost:8080"
+            "http://localhost:8080",
+            "http://localhost:8081"              // <-- Por si pruebas en otro puerto local
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
@@ -95,5 +98,7 @@ app.MapStayEndpoints();
 app.MapGuestPortalEndpoints();
 app.MapCustomerEndpoints();
 app.MapRuleEndpoints();
+app.MapKioskEndpoints();
+app.UseStaticFiles();
 
 app.Run();

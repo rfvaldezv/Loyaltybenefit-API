@@ -188,6 +188,7 @@ public static class GuestPortalEndpoints
         });
 
         // NUEVO GET: Branding del Hotel (Colores y Logo)
+        // GET: Branding del Hotel
         group.MapGet("/branding", async (
             string tenantId,
             PlatformDbContext platformDb) =>
@@ -203,7 +204,7 @@ public static class GuestPortalEndpoints
             return Results.Ok(new
             {
                 Name = tenant.Name,
-                LogoUrl = tenant.LogoUrl ?? "",
+                LogoUrl = tenant.LogoUrl ?? "", // Ej: "/logos/guid_123.png"
                 PrimaryColor = tenant.PrimaryColorHex ?? "#4F46E5",
                 SecondaryColor = tenant.SecondaryColorHex ?? "#8B5CF6"
             });
