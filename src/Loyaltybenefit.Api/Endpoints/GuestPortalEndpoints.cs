@@ -84,7 +84,7 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // NUEVO GET: Catálogo de Premios
+        // GET: Catálogo de Premios
         group.MapGet("/rewards", async (IConfiguration config) =>
         {
             try
@@ -175,7 +175,6 @@ public static class GuestPortalEndpoints
                         VALUES (@GuestId, @RewardId, @Address)";
                     using (var orderCmd = new SqlCommand(insertOrder, connection))
                     {
-                        // Usamos el ID del premio que viene en el request o un GUID dummy si no viene
                         orderCmd.Parameters.AddWithValue("@GuestId", guestId);
                         orderCmd.Parameters.AddWithValue("@RewardId", request.RewardId ?? Guid.NewGuid());
                         orderCmd.Parameters.AddWithValue("@Address", request.ShippingAddress);
@@ -186,6 +185,28 @@ public static class GuestPortalEndpoints
                 return Results.Ok(new { mensaje = "¡Canje exitoso!", nuevoSaldo = currentPoints - request.PointsToRedeem, item = request.RewardName });
             }
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
+        });
+
+        // NUEVO GET: Branding del Hotel (Colores y Logo)
+        group.MapGet("/branding", async (
+            string tenantId,
+            PlatformDbContext platformDb) =>
+        {
+            if (!Guid.TryParse(tenantId, out var parsedTenantId))
+                return Results.BadRequest("TenantId inválido.");
+
+            var tenant = await platformDb.Tenants.FirstOrDefaultAsync(t => t.Id == parsedTenantId);
+            
+            if (tenant == null) 
+                return Results.NotFound("Hotel no encontrado.");
+
+            return Results.Ok(new
+            {
+                Name = tenant.Name,
+                LogoUrl = tenant.LogoUrl ?? "",
+                PrimaryColor = tenant.PrimaryColorHex ?? "#4F46E5",
+                SecondaryColor = tenant.SecondaryColorHex ?? "#8B5CF6"
+            });
         });
     }
 }

@@ -31,6 +31,19 @@ public sealed class TenantConfiguration
         builder.Property(x => x.CreatedAtUtc)
             .IsRequired();
 
+        // MAPEO DE LAS NUEVAS COLUMNAS DE BRANDING
+        builder.Property(x => x.LogoUrl)
+            .HasMaxLength(255)
+            .IsRequired(false); // Permite nulos
+
+        builder.Property(x => x.PrimaryColorHex)
+            .HasMaxLength(7)
+            .IsRequired(false);
+
+        builder.Property(x => x.SecondaryColorHex)
+            .HasMaxLength(7)
+            .IsRequired(false);
+
         builder.HasIndex(x => x.Code)
             .IsUnique();
 
