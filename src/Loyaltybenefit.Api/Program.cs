@@ -100,5 +100,6 @@ app.MapCustomerEndpoints();
 app.MapRuleEndpoints();
 app.MapKioskEndpoints();
 app.UseStaticFiles();
+app.MapAnalyticsEndpoints();
 
 app.Run();

@@ -26,24 +26,27 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<DatabaseCredential> DatabaseCredentials =>
         Set<DatabaseCredential>();
 
-    protected override void OnModelCreating(
-        ModelBuilder modelBuilder)
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+
+    // ... (tu configuración existente de Tenant, etc.)
+    
+    // NUEVO: Configuración de Properties
+    modelBuilder.Entity<Property>(entity =>
     {
-        base.OnModelCreating(modelBuilder);
+        entity.ToTable("Properties");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+        entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
+    });
+    
+    // NUEVO: Mapear los campos de Branding de Tenant
+    modelBuilder.Entity<Tenant>(entity =>
+    {
+        entity.Property(e => e.AccountType).HasMaxLength(20).HasDefaultValue("Single");
+    });
+}
 
-        modelBuilder.ApplyConfiguration(
-            new Configurations.IndustryConfiguration());
-
-        modelBuilder.ApplyConfiguration(
-            new Configurations.TenantConfiguration());
-
-        modelBuilder.ApplyConfiguration(
-            new Configurations.TenantDatabaseConfiguration());
-
-        modelBuilder.ApplyConfiguration(
-            new Configurations.DatabaseServerConfiguration());
-
-        modelBuilder.ApplyConfiguration(
-            new Configurations.DatabaseCredentialConfiguration());
-    }
+    public DbSet<Property> Properties { get; set; }
 }
