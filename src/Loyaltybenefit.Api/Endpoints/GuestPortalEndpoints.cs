@@ -209,6 +209,34 @@ public static class GuestPortalEndpoints
                 SecondaryColor = tenant.SecondaryColorHex ?? "#8B5CF6"
             });
         });
+
+        // GET: Listar Propiedades (Para el Dropdown del Admin)
+        group.MapGet("/properties", async (IConfiguration config) =>
+        {
+            try
+            {
+                var connectionString = string.Format(config.GetConnectionString("TenantTemplate")!, "CONCEPT_HOTEL_DB");
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                var query = "SELECT Id, Name, Code FROM Properties WHERE IsActive = 1";
+                using var cmd = new SqlCommand(query, connection);
+                using var reader = await cmd.ExecuteReaderAsync();
+
+                var properties = new List<object>();
+                while (await reader.ReadAsync())
+                {
+                    properties.Add(new
+                    {
+                        Id = reader.GetGuid(0),
+                        Name = reader.GetString(1),
+                        Code = reader.GetString(2)
+                    });
+                }
+                return Results.Ok(properties);
+            }
+            catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
+        });
     }
 }
 
