@@ -82,5 +82,7 @@ app.MapAnalyticsEndpoints();
 // app.MapRuleEndpoints();    
 // app.MapStayEndpoints();    
 // app.MapTenantDatabaseEndpoints();
+app.MapPropertyEndpoints();
+app.MapUserEndpoints();
 
 app.Run();
