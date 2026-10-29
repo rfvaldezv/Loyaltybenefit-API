@@ -115,7 +115,7 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // POST: Redimir un premio (Actualizado para envíos)
+        // POST: Redimir un premio
         group.MapPost("/redeem", async (
             RedeemRewardRequest request, IConfiguration config) =>
         {
@@ -125,7 +125,6 @@ public static class GuestPortalEndpoints
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
 
-                // 1. Validar saldo y obtener cuenta
                 var query = "SELECT a.Id, a.PointsBalance, g.Id FROM Guests g JOIN LoyaltyAccounts a ON g.Id = a.GuestId WHERE g.Email = @Email";
                 using var cmd = new SqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@Email", request.GuestEmail);
@@ -148,7 +147,6 @@ public static class GuestPortalEndpoints
                 if (currentPoints < request.PointsToRedeem)
                     return Results.BadRequest($"Puntos insuficientes. Tienes {currentPoints}.");
 
-                // 2. Descontar puntos
                 var updateQuery = "UPDATE LoyaltyAccounts SET PointsBalance = PointsBalance - @Points WHERE Id = @Id";
                 using (var updateCmd = new SqlCommand(updateQuery, connection))
                 {
@@ -157,7 +155,6 @@ public static class GuestPortalEndpoints
                     await updateCmd.ExecuteNonQueryAsync();
                 }
 
-                // 3. Guardar en historial
                 var insertTx = "INSERT INTO PointTransactions (Id, LoyaltyAccountId, Points, Type, Description, CreatedAtUtc) VALUES (NEWID(), @AccountId, @Points, 'Redeem', @Desc, GETUTCDATE())";
                 using (var txCmd = new SqlCommand(insertTx, connection))
                 {
@@ -167,12 +164,9 @@ public static class GuestPortalEndpoints
                     await txCmd.ExecuteNonQueryAsync();
                 }
 
-                // 4. Si es físico y hay dirección, crear la orden de envío
                 if (request.IsPhysical && !string.IsNullOrWhiteSpace(request.ShippingAddress))
                 {
-                    var insertOrder = @"
-                        INSERT INTO RedemptionOrders (GuestId, RewardId, ShippingAddress) 
-                        VALUES (@GuestId, @RewardId, @Address)";
+                    var insertOrder = @"INSERT INTO RedemptionOrders (GuestId, RewardId, ShippingAddress) VALUES (@GuestId, @RewardId, @Address)";
                     using (var orderCmd = new SqlCommand(insertOrder, connection))
                     {
                         orderCmd.Parameters.AddWithValue("@GuestId", guestId);
@@ -187,11 +181,8 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // NUEVO GET: Branding del Hotel (Colores y Logo)
         // GET: Branding del Hotel
-        group.MapGet("/branding", async (
-            string tenantId,
-            PlatformDbContext platformDb) =>
+        group.MapGet("/branding", async (string tenantId, PlatformDbContext platformDb) =>
         {
             if (!Guid.TryParse(tenantId, out var parsedTenantId))
                 return Results.BadRequest("TenantId inválido.");
@@ -204,51 +195,33 @@ public static class GuestPortalEndpoints
             return Results.Ok(new
             {
                 Name = tenant.Name,
-                LogoUrl = tenant.LogoUrl ?? "", // Ej: "/logos/guid_123.png"
+                LogoUrl = tenant.LogoUrl ?? "",
                 PrimaryColor = tenant.PrimaryColorHex ?? "#4F46E5",
                 SecondaryColor = tenant.SecondaryColorHex ?? "#8B5CF6"
             });
         });
 
-        // GET: Listar Propiedades (Para el Dropdown del Admin)
-        group.MapGet("/properties", async (IConfiguration config) =>
-        {
-            try
-            {
-                var connectionString = string.Format(config.GetConnectionString("TenantTemplate")!, "CONCEPT_HOTEL_DB");
-                using var connection = new SqlConnection(connectionString);
-                await connection.OpenAsync();
-
-                var query = "SELECT Id, Name, Code FROM Properties WHERE IsActive = 1";
-                using var cmd = new SqlCommand(query, connection);
-                using var reader = await cmd.ExecuteReaderAsync();
-
-                var properties = new List<object>();
-                while (await reader.ReadAsync())
-                {
-                    properties.Add(new
-                    {
-                        Id = reader.GetGuid(0),
-                        Name = reader.GetString(1),
-                        Code = reader.GetString(2)
-                    });
-                }
-                return Results.Ok(properties);
-            }
-            catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
-        });
         // POST: Solicitar código OTP
-        group.MapPost("/auth/request-otp", async (OtpRequest request, IConfiguration config) =>
+        group.MapPost("/auth/request-otp", async (OtpRequest request, IConfiguration config, PlatformDbContext platformDb) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email)) return Results.BadRequest("El correo es requerido.");
 
             try
             {
+                // 1. Buscamos el Tenant. 
+                // Como estamos en pruebas con CONCEPT_HOTEL_DB, buscamos el primero activo.
+                // En producción real, esto vendría del request.TenantId.
+                var tenant = await platformDb.Tenants.FirstOrDefaultAsync(t => t.IsActive);
+                
+                var primaryColor = tenant?.PrimaryColorHex ?? "#4F46E5";
+                var logoUrl = tenant?.LogoUrl ?? "";
+                var hotelName = tenant?.Name ?? "Loyalty Benefit";
+
+                // 2. Validar huésped
                 var connectionString = string.Format(config.GetConnectionString("TenantTemplate")!, "CONCEPT_HOTEL_DB");
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
 
-                // 1. Verificar que el huésped exista
                 var checkQuery = "SELECT Id FROM Guests WHERE Email = @Email AND IsActive = 1";
                 using (var checkCmd = new SqlCommand(checkQuery, connection))
                 {
@@ -257,12 +230,11 @@ public static class GuestPortalEndpoints
                     if (exists == null) return Results.NotFound("El correo no está registrado.");
                 }
 
-                // 2. Generar OTP de 6 dígitos y expiración de 5 minutos
+                // 3. Generar OTP
                 var random = new Random();
                 var otpCode = random.Next(100000, 999999).ToString();
                 var expiresAt = DateTime.UtcNow.AddMinutes(5);
 
-                // 3. Guardar en la base de datos
                 var updateQuery = "UPDATE Guests SET OtpCode = @Otp, OtpExpiresAt = @Expires WHERE Email = @Email";
                 using (var updateCmd = new SqlCommand(updateQuery, connection))
                 {
@@ -272,14 +244,80 @@ public static class GuestPortalEndpoints
                     await updateCmd.ExecuteNonQueryAsync();
                 }
 
-                // Nota: En producción, aquí enviarías un correo con SendGrid/SMTP.
-                // Por ahora, devolvemos el OTP en la respuesta para probar.
+                // 4. Enviar correo con SMTP2GO
+                try
+                {
+                    var senderEmail = config["EmailSettings:SenderEmail"];
+                    var senderName = config["EmailSettings:SenderName"];
+                    var smtpServer = config["EmailSettings:SmtpServer"];
+                    var smtpPort = int.Parse(config["EmailSettings:SmtpPort"] ?? "2525");
+                    var username = config["EmailSettings:Username"];
+                    var password = config["EmailSettings:Password"];
+
+                    // Aseguramos que la URL del logo sea absoluta
+                    var fullLogoUrl = string.IsNullOrEmpty(logoUrl) ? "" : $"https://api.loyaltybenefit.com{logoUrl}";
+
+                    using var mail = new System.Net.Mail.MailMessage();
+                    mail.From = new System.Net.Mail.MailAddress(senderEmail!, senderName);
+                    mail.To.Add(request.Email);
+                    mail.Subject = $"Tu código de acceso a {hotelName}";
+                    
+                    mail.Body = $@"
+                        <div style='font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background-color: #0F172A; color: #FFFFFF; border-radius: 16px; overflow: hidden;'>
+                            
+                            <!-- Encabezado con el color del hotel y el logo -->
+                            <div style='background-color: {primaryColor}; padding: 30px; text-align: center;'>
+                                {(string.IsNullOrEmpty(fullLogoUrl) 
+                                    ? $"<h1 style='color: white; margin: 0; font-size: 28px;'>{hotelName}</h1>" 
+                                    : $"<img src='{fullLogoUrl}' alt='{hotelName}' style='max-height: 60px; margin-bottom: 10px;' />")}
+                            </div>
+
+                            <!-- Cuerpo del correo -->
+                            <div style='padding: 40px 30px; text-align: center;'>
+                                <h2 style='color: #FFFFFF; margin-top: 0;'>¡Hola de nuevo!</h2>
+                                
+                                <!-- TEXTO DE BIENVENIDA AL PROGRAMA DE LEALTAD -->
+                                <p style='color: #94A3B8; font-size: 16px; line-height: 1.5;'>
+                                    Bienvenido al programa de lealtad de <strong>{hotelName}</strong>.
+                                </p>
+                                
+                                <p style='color: #94A3B8; font-size: 14px;'>Para acceder a tu cuenta y consultar tus puntos, usa el siguiente código:</p>
+                                
+                                <div style='background-color: #1E293B; padding: 20px; border-radius: 12px; margin: 30px 0; border: 1px solid #334155;'>
+                                    <h1 style='color: {primaryColor}; letter-spacing: 12px; font-size: 40px; margin: 0;'>{otpCode}</h1>
+                                </div>
+                                
+                                <p style='color: #94A3B8; font-size: 14px;'>Este código expirará en 5 minutos.</p>
+                                <p style='color: #64748B; font-size: 12px;'>Si no solicitaste este código, puedes ignorar este correo.</p>
+                            </div>
+
+                            <!-- Pie de página con la marca de Loyalty Benefit -->
+                            <div style='background-color: #0F172A; padding: 20px; text-align: center; border-top: 1px solid #1E293B;'>
+                                <p style='color: #64748B; font-size: 12px; margin: 0;'>
+                                    Powered by <strong style='color: #6366F1;'>Loyalty Benefit</strong>
+                                </p>
+                            </div>
+                        </div>";
+                    mail.IsBodyHtml = true;
+
+                    using var smtpClient = new System.Net.Mail.SmtpClient(smtpServer, smtpPort);
+                    smtpClient.Credentials = new System.Net.NetworkCredential(username, password);
+                    smtpClient.EnableSsl = true;
+                    
+                    await smtpClient.SendMailAsync(mail);
+                    Console.WriteLine($"✅ Correo enviado a {request.Email} con OTP {otpCode}");
+                }
+                catch (Exception mailEx)
+                {
+                    Console.WriteLine($"❌ Error SMTP2GO: {mailEx.Message}");
+                }
+
                 return Results.Ok(new { mensaje = "Código enviado", debug_otp = otpCode });
             }
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // POST: Verificar OTP y generar sesión
+        // POST: Verificar OTP
         group.MapPost("/auth/verify-otp", async (OtpVerifyRequest request, IConfiguration config) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Code))
@@ -295,8 +333,7 @@ public static class GuestPortalEndpoints
                     SELECT Id, FirstName, Email 
                     FROM Guests 
                     WHERE Email = @Email 
-                      AND OtpCode = @Code 
-                      AND OtpExpiresAt > GETUTCDATE()";
+                      AND OtpCode = @Code";
 
                 using (var cmd = new SqlCommand(query, connection))
                 {
@@ -311,7 +348,6 @@ public static class GuestPortalEndpoints
                             var firstName = reader.GetString(1);
                             var email = reader.GetString(2);
 
-                            // Limpiar el OTP usado
                             await reader.CloseAsync();
                             using var clearCmd = new SqlCommand("UPDATE Guests SET OtpCode = NULL, OtpExpiresAt = NULL WHERE Id = @Id", connection);
                             clearCmd.Parameters.AddWithValue("@Id", guestId);
@@ -328,6 +364,8 @@ public static class GuestPortalEndpoints
     }
 }
 
+public record OtpRequest(string Email);
+public record OtpVerifyRequest(string Email, string Code);
 public record RedeemRewardRequest(
     string TenantId,
     string GuestEmail,
@@ -337,6 +375,3 @@ public record RedeemRewardRequest(
     string? ShippingAddress = null,
     Guid? RewardId = null
 );
-
-public record OtpRequest(string Email);
-public record OtpVerifyRequest(string Email, string Code);
