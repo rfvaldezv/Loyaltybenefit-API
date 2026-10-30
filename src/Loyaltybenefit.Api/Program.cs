@@ -22,7 +22,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // Cambiar a true en producción final
+    options.RequireHttpsMetadata = false; 
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -62,11 +62,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseStaticFiles(); // Para logos
-
+// 🔥 EL ORDEN CORRECTO: CORS ANTES de StaticFiles
 app.UseCors("AllowFrontends");
 
-app.UseAuthentication(); // <-- IMPORTANTE: Va antes de Authorization
+app.UseStaticFiles(); // Para logos
+
+app.UseAuthentication(); 
 app.UseAuthorization();
 
 // 5. Registrar Endpoints

@@ -11,8 +11,8 @@ public static class CustomerEndpoints
     public static void MapCustomerEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/customers")
-            .WithTags("Clientes (Huéspedes)")
-            .RequireAuthorization();
+            .WithTags("Clientes (Huéspedes)");
+            // .RequireAuthorization(); // Comentado para permitir el registro desde el Kiosko
 
         // GET: Listar clientes desde SQL Server
         group.MapGet("/", async (
@@ -21,9 +21,6 @@ public static class CustomerEndpoints
             IConfiguration config,
             string? tenantId = null) =>
         {
-            // 🔥 FIX: Ignoramos la validación estricta del TenantId para evitar el error 400
-            // y nos vamos directo a la base de datos del hotel.
-            
             try
             {
                 var connectionTemplate = config.GetConnectionString("TenantTemplate");
@@ -57,28 +54,21 @@ public static class CustomerEndpoints
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ ERROR SQL EN CLIENTES: {ex.Message}");
-                return Results.BadRequest(new {
-                    mensaje = "Error al cargar clientes desde SQL",
-                    detalle = ex.Message,
-                    inner = ex.InnerException?.Message
-                });
+                // ESTO NOS DIRÁ EL ERROR REAL EN LA CONSOLA Y EN FLUTTER
+                Console.WriteLine($"❌ ERROR AL CREAR CLIENTE: {ex.Message}");
+                if (ex.InnerException != null)
+                    Console.WriteLine($"❌ INNER: {ex.InnerException.Message}");
+                    
+                return Results.BadRequest($"Error exacto: {ex.Message} - {ex.InnerException?.Message}");
             }
         });
 
-        // POST: Registrar un cliente en SQL Server
+        // POST: Registrar un cliente (SIN validación de Header para permitir el Kiosko)
         group.MapPost("/", async (
             CreateCustomerRequest request,
-            HttpContext httpContext,
             PlatformDbContext platformDb,
             IConfiguration config) =>
         {
-            if (!httpContext.Request.Headers.TryGetValue("X-Tenant-Id", out var headerTenant) ||
-                !Guid.TryParse(headerTenant, out var parsedTenantId))
-            {
-                return Results.BadRequest("Falta el TenantId en el Header.");
-            }
-
             var firstName = request.GetFirstName();
             var lastName = request.GetLastName();
             var email = request.Email;
@@ -88,7 +78,6 @@ public static class CustomerEndpoints
 
             try
             {
-                // 🔥 FIX: Usamos la BD directa
                 var connectionTemplate = config.GetConnectionString("TenantTemplate");
                 var connectionString = string.Format(connectionTemplate!, "CONCEPT_HOTEL_DB");
 
@@ -96,11 +85,13 @@ public static class CustomerEndpoints
                 {
                     await connection.OpenAsync();
 
+                    // Verificar si ya existe
                     using (var checkCmd = new SqlCommand("SELECT COUNT(1) FROM Guests WHERE Email = @Email", connection))
                     {
                         checkCmd.Parameters.AddWithValue("@Email", email);
                         var exists = (int)(await checkCmd.ExecuteScalarAsync() ?? 0);
-                        if (exists > 0) return Results.Conflict("El correo ya está registrado en este hotel.");
+                        if (exists > 0) 
+                            return Results.Conflict("El correo ya está registrado."); // <-- Cambiamos BadRequest por Conflict (409)
                     }
 
                     var guestId = Guid.NewGuid();
@@ -117,7 +108,7 @@ public static class CustomerEndpoints
                         await cmd.ExecuteNonQueryAsync();
                     }
 
-                    // Creamos también la cuenta de lealtad para que el cliente pueda acumular puntos
+                    // Crear la cuenta de lealtad para el cliente
                     var accountId = Guid.NewGuid();
                     var insertAccount = "INSERT INTO LoyaltyAccounts (Id, GuestId, PointsBalance) VALUES (@Id, @GuestId, 0)";
                     using (var accCmd = new SqlCommand(insertAccount, connection))
@@ -142,7 +133,7 @@ public static class CustomerEndpoints
             }
         });
 
-        // POST: Ajuste manual de puntos (Backoffice)
+        // POST: Ajuste manual de puntos
         group.MapPost("/{guestId}/adjust-points", async (
             Guid guestId,
             AdjustPointsRequest request,
@@ -163,7 +154,6 @@ public static class CustomerEndpoints
                 {
                     await connection.OpenAsync();
 
-                    // 1. Buscamos la cuenta de lealtad del cliente
                     var queryAccount = "SELECT Id, PointsBalance FROM LoyaltyAccounts WHERE GuestId = @GuestId";
                     Guid? accountId = null;
                     int currentPoints = 0;
@@ -184,7 +174,6 @@ public static class CustomerEndpoints
                     if (accountId == null)
                         return Results.NotFound("No se encontró una cuenta de lealtad para este cliente.");
 
-                    // 2. Actualizamos el saldo
                     var updateQuery = "UPDATE LoyaltyAccounts SET PointsBalance = PointsBalance + @Points WHERE Id = @Id";
                     using (var updateCmd = new SqlCommand(updateQuery, connection))
                     {
@@ -193,7 +182,6 @@ public static class CustomerEndpoints
                         await updateCmd.ExecuteNonQueryAsync();
                     }
 
-                    // 3. Registramos la transacción en el historial (Timeline)
                     var insertTxQuery = @"
                         INSERT INTO PointTransactions (Id, LoyaltyAccountId, Points, Type, Description, CreatedAtUtc) 
                         VALUES (NEWID(), @AccountId, @Points, @Type, @Description, GETUTCDATE())";

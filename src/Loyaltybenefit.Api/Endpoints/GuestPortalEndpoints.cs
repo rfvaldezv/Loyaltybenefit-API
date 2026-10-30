@@ -11,7 +11,7 @@ public static class GuestPortalEndpoints
         var group = app.MapGroup("/api/portal")
             .WithTags("Portal del Huésped");
 
-        // GET: Consultar saldo
+        // GET: Consultar saldo (A PRUEBA DE FALLOS)
         group.MapGet("/balance", async (
             string email, string tenantId, PlatformDbContext platformDb, IConfiguration config) =>
         {
@@ -22,7 +22,13 @@ public static class GuestPortalEndpoints
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
 
-                var query = "SELECT g.FirstName, g.Email, a.PointsBalance FROM Guests g LEFT JOIN LoyaltyAccounts a ON g.Id = a.GuestId WHERE g.Email = @Email";
+                // Usamos ISNULL para que devuelva 0 si el cliente no tiene cuenta aún
+                var query = @"
+                    SELECT g.FirstName, g.Email, ISNULL(a.PointsBalance, 0) as Puntos
+                    FROM Guests g 
+                    LEFT JOIN LoyaltyAccounts a ON g.Id = a.GuestId 
+                    WHERE g.Email = @Email";
+
                 using var cmd = new SqlCommand(query, connection);
                 cmd.Parameters.AddWithValue("@Email", email);
                 using var reader = await cmd.ExecuteReaderAsync();
@@ -33,8 +39,8 @@ public static class GuestPortalEndpoints
                     {
                         Cliente = reader.GetString(0),
                         Email = reader.GetString(1),
-                        Puntos = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-                        Nivel = (reader.IsDBNull(2) ? 0 : reader.GetInt32(2)) > 500 ? "VIP Gold" : "Miembro",
+                        Puntos = reader.GetInt32(2),
+                        Nivel = reader.GetInt32(2) > 500 ? "VIP Gold" : "Miembro",
                         Mensaje = "¡Bienvenido!"
                     });
                 }
@@ -43,7 +49,7 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // GET: Historial de movimientos (Statement / Timeline)
+        // GET: Historial
         group.MapGet("/statement", async (
             string email, string tenantId, PlatformDbContext platformDb, IConfiguration config) =>
         {
@@ -84,7 +90,7 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // GET: Catálogo de Premios
+        // GET: Premios
         group.MapGet("/rewards", async (IConfiguration config) =>
         {
             try
@@ -115,9 +121,8 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // POST: Redimir un premio
-        group.MapPost("/redeem", async (
-            RedeemRewardRequest request, IConfiguration config) =>
+        // POST: Redimir
+        group.MapPost("/redeem", async (RedeemRewardRequest request, IConfiguration config) =>
         {
             try
             {
@@ -166,7 +171,7 @@ public static class GuestPortalEndpoints
 
                 if (request.IsPhysical && !string.IsNullOrWhiteSpace(request.ShippingAddress))
                 {
-                    var insertOrder = @"INSERT INTO RedemptionOrders (GuestId, RewardId, ShippingAddress) VALUES (@GuestId, @RewardId, @Address)";
+                    var insertOrder = "INSERT INTO RedemptionOrders (GuestId, RewardId, ShippingAddress) VALUES (@GuestId, @RewardId, @Address)";
                     using (var orderCmd = new SqlCommand(insertOrder, connection))
                     {
                         orderCmd.Parameters.AddWithValue("@GuestId", guestId);
@@ -181,7 +186,7 @@ public static class GuestPortalEndpoints
             catch (Exception ex) { return Results.BadRequest($"Error: {ex.Message}"); }
         });
 
-        // GET: Branding del Hotel
+        // GET: Branding
         group.MapGet("/branding", async (string tenantId, PlatformDbContext platformDb) =>
         {
             if (!Guid.TryParse(tenantId, out var parsedTenantId))
@@ -201,23 +206,18 @@ public static class GuestPortalEndpoints
             });
         });
 
-        // POST: Solicitar código OTP
+        // POST: Solicitar OTP
         group.MapPost("/auth/request-otp", async (OtpRequest request, IConfiguration config, PlatformDbContext platformDb) =>
         {
             if (string.IsNullOrWhiteSpace(request.Email)) return Results.BadRequest("El correo es requerido.");
 
             try
             {
-                // 1. Buscamos el Tenant. 
-                // Como estamos en pruebas con CONCEPT_HOTEL_DB, buscamos el primero activo.
-                // En producción real, esto vendría del request.TenantId.
-                var tenant = await platformDb.Tenants.FirstOrDefaultAsync(t => t.IsActive);
-                
+                var tenant = await platformDb.Tenants.FirstOrDefaultAsync();
                 var primaryColor = tenant?.PrimaryColorHex ?? "#4F46E5";
                 var logoUrl = tenant?.LogoUrl ?? "";
                 var hotelName = tenant?.Name ?? "Loyalty Benefit";
 
-                // 2. Validar huésped
                 var connectionString = string.Format(config.GetConnectionString("TenantTemplate")!, "CONCEPT_HOTEL_DB");
                 using var connection = new SqlConnection(connectionString);
                 await connection.OpenAsync();
@@ -230,7 +230,6 @@ public static class GuestPortalEndpoints
                     if (exists == null) return Results.NotFound("El correo no está registrado.");
                 }
 
-                // 3. Generar OTP
                 var random = new Random();
                 var otpCode = random.Next(100000, 999999).ToString();
                 var expiresAt = DateTime.UtcNow.AddMinutes(5);
@@ -244,7 +243,6 @@ public static class GuestPortalEndpoints
                     await updateCmd.ExecuteNonQueryAsync();
                 }
 
-                // 4. Enviar correo con SMTP2GO
                 try
                 {
                     var senderEmail = config["EmailSettings:SenderEmail"];
@@ -254,48 +252,30 @@ public static class GuestPortalEndpoints
                     var username = config["EmailSettings:Username"];
                     var password = config["EmailSettings:Password"];
 
-                    // Aseguramos que la URL del logo sea absoluta
                     var fullLogoUrl = string.IsNullOrEmpty(logoUrl) ? "" : $"https://api.loyaltybenefit.com{logoUrl}";
 
                     using var mail = new System.Net.Mail.MailMessage();
                     mail.From = new System.Net.Mail.MailAddress(senderEmail!, senderName);
                     mail.To.Add(request.Email);
                     mail.Subject = $"Tu código de acceso a {hotelName}";
-                    
                     mail.Body = $@"
                         <div style='font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; background-color: #0F172A; color: #FFFFFF; border-radius: 16px; overflow: hidden;'>
-                            
-                            <!-- Encabezado con el color del hotel y el logo -->
                             <div style='background-color: {primaryColor}; padding: 30px; text-align: center;'>
                                 {(string.IsNullOrEmpty(fullLogoUrl) 
                                     ? $"<h1 style='color: white; margin: 0; font-size: 28px;'>{hotelName}</h1>" 
                                     : $"<img src='{fullLogoUrl}' alt='{hotelName}' style='max-height: 60px; margin-bottom: 10px;' />")}
                             </div>
-
-                            <!-- Cuerpo del correo -->
                             <div style='padding: 40px 30px; text-align: center;'>
                                 <h2 style='color: #FFFFFF; margin-top: 0;'>¡Hola de nuevo!</h2>
-                                
-                                <!-- TEXTO DE BIENVENIDA AL PROGRAMA DE LEALTAD -->
-                                <p style='color: #94A3B8; font-size: 16px; line-height: 1.5;'>
-                                    Bienvenido al programa de lealtad de <strong>{hotelName}</strong>.
-                                </p>
-                                
+                                <p style='color: #94A3B8; font-size: 16px; line-height: 1.5;'>Bienvenido al programa de lealtad de <strong>{hotelName}</strong>.</p>
                                 <p style='color: #94A3B8; font-size: 14px;'>Para acceder a tu cuenta y consultar tus puntos, usa el siguiente código:</p>
-                                
                                 <div style='background-color: #1E293B; padding: 20px; border-radius: 12px; margin: 30px 0; border: 1px solid #334155;'>
                                     <h1 style='color: {primaryColor}; letter-spacing: 12px; font-size: 40px; margin: 0;'>{otpCode}</h1>
                                 </div>
-                                
                                 <p style='color: #94A3B8; font-size: 14px;'>Este código expirará en 5 minutos.</p>
-                                <p style='color: #64748B; font-size: 12px;'>Si no solicitaste este código, puedes ignorar este correo.</p>
                             </div>
-
-                            <!-- Pie de página con la marca de Loyalty Benefit -->
                             <div style='background-color: #0F172A; padding: 20px; text-align: center; border-top: 1px solid #1E293B;'>
-                                <p style='color: #64748B; font-size: 12px; margin: 0;'>
-                                    Powered by <strong style='color: #6366F1;'>Loyalty Benefit</strong>
-                                </p>
+                                <p style='color: #64748B; font-size: 12px; margin: 0;'>Powered by <strong style='color: #6366F1;'>Loyalty Benefit</strong></p>
                             </div>
                         </div>";
                     mail.IsBodyHtml = true;
@@ -305,7 +285,6 @@ public static class GuestPortalEndpoints
                     smtpClient.EnableSsl = true;
                     
                     await smtpClient.SendMailAsync(mail);
-                    Console.WriteLine($"✅ Correo enviado a {request.Email} con OTP {otpCode}");
                 }
                 catch (Exception mailEx)
                 {
@@ -367,11 +346,6 @@ public static class GuestPortalEndpoints
 public record OtpRequest(string Email);
 public record OtpVerifyRequest(string Email, string Code);
 public record RedeemRewardRequest(
-    string TenantId,
-    string GuestEmail,
-    string RewardName,
-    int PointsToRedeem,
-    bool IsPhysical = false,
-    string? ShippingAddress = null,
-    Guid? RewardId = null
+    string TenantId, string GuestEmail, string RewardName, int PointsToRedeem,
+    bool IsPhysical = false, string? ShippingAddress = null, Guid? RewardId = null
 );
